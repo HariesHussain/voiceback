@@ -38,7 +38,7 @@ function getISTHour(isoTime: string): number {
 
 /**
  * Evaluates an AI recommendation against deterministic safety guardrails.
- * No AI model has final authority over payment recovery execution.
+ * Pure function: synchronous, deterministic, no side effects, no API calls.
  * 
  * Rules are evaluated in strict priority order (1 to 7).
  * The first matching rule determines the outcome.
@@ -214,6 +214,93 @@ export function applyPolicy(order: Order, diagnosis: GeminiDiagnosis): PolicyDec
 }
 
 /**
+ * 5 Unit tests verifying the 5 core Stage 3 policy rules.
+ */
+export function TEST_POLICY_ENGINE() {
+  const dummyOrder: Order = {
+    id: 'TEST-001',
+    customer_name: 'Test User',
+    customer_phone: '+919999999999',
+    amount: 10000,
+    failure_type: 'upi_timeout',
+    failure_time: '2026-08-25T05:30:00.000Z', // 11:00 AM IST
+    previous_attempts: 0,
+    preferred_channel: 'sms',
+    language: 'hindi',
+    status: 'pending',
+  };
+
+  const dummyDiagnosis: GeminiDiagnosis = {
+    order_id: 'TEST-001',
+    root_cause: 'UPI timeout',
+    recommended_strategy: 'instant_retry',
+    confidence: 0.9,
+    fraud_signal: false,
+    reasoning: 'Test diagnosis',
+  };
+
+  const tests = [
+    {
+      name: 'Rule 1: previous_attempts = 3 -> always BLOCK',
+      run: () => {
+        const order = { ...dummyOrder, previous_attempts: 3 };
+        const res = applyPolicy(order, dummyDiagnosis);
+        return res.blocked === true && res.approved === false && res.policy_reason === 'Maximum recovery attempts (3) reached';
+      },
+    },
+    {
+      name: 'Rule 2: Hard decline -> always BLOCK',
+      run: () => {
+        const order = { ...dummyOrder, failure_type: 'card_declined' as const };
+        const res = applyPolicy(order, dummyDiagnosis);
+        return res.blocked === true && res.approved === false && res.final_strategy === 'stop_unrecoverable';
+      },
+    },
+    {
+      name: 'Rule 3: mandate_failed first attempt -> mandate_retry_sequencer',
+      run: () => {
+        const order = { ...dummyOrder, failure_type: 'mandate_failed' as const, previous_attempts: 0 };
+        const diag = { ...dummyDiagnosis, recommended_strategy: 'hinglish_voice_simulation' as const };
+        const res = applyPolicy(order, diag);
+        return res.final_strategy === 'mandate_retry_sequencer' && res.modified === true;
+      },
+    },
+    {
+      name: 'Rule 4: Voice at 11 PM IST -> payment_link_sms',
+      run: () => {
+        // 17:30 UTC = 23:00 (11 PM) IST
+        const order = { ...dummyOrder, amount: 10000, failure_time: '2026-08-25T17:30:00.000Z' };
+        const diag = { ...dummyDiagnosis, recommended_strategy: 'hinglish_voice_simulation' as const };
+        const res = applyPolicy(order, diag);
+        return res.final_strategy === 'payment_link_sms' && res.policy_reason.includes('outside 9 AM - 9 PM IST');
+      },
+    },
+    {
+      name: 'Rule 5: AI returns invalid strategy -> override to human_escalation',
+      run: () => {
+        const diag = { ...dummyDiagnosis, recommended_strategy: 'magic_refund_strategy' as any };
+        const res = applyPolicy(dummyOrder, diag);
+        return res.final_strategy === 'human_escalation' && res.modified === true;
+      },
+    },
+  ];
+
+  const results = tests.map((t) => ({
+    name: t.name,
+    passed: t.run(),
+  }));
+
+  const allPassed = results.every((r) => r.passed);
+  return {
+    allPassed,
+    totalTests: results.length,
+    passCount: results.filter((r) => r.passed).length,
+    failCount: results.filter((r) => !r.passed).length,
+    results,
+  };
+}
+
+/**
  * Test helper that runs `applyPolicy` across all 30 synthetic orders with mock AI diagnoses
  * and returns a summary of policy decisions and outcomes.
  */
@@ -224,7 +311,6 @@ export function EXPECTED_POLICY_OUTCOMES() {
   let blockedCount = 0;
 
   for (const order of SYNTHETIC_ORDERS) {
-    // Generate a default mock diagnosis based on failure type and order parameters
     const mockDiagnosis: GeminiDiagnosis = {
       order_id: order.id,
       root_cause: `Payment failure due to ${order.failure_type}`,
