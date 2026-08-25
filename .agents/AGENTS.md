@@ -400,6 +400,56 @@ audit event
 
 ---
 
+# ARCHITECTURE LOCK — STRICT
+
+The existing folder structure is LOCKED.
+
+The agent MUST NOT create any new top-level folders or subfolders without explicit user approval.
+
+The currently approved top-level directories are:
+
+- /app
+- /components
+- /lib
+- /types
+- /public
+
+Do NOT create folders such as:
+
+- /scripts
+- /utils
+- /services
+- /hooks
+- /helpers
+- /tests
+- /config
+- /data
+- /providers
+- /stores
+- /workers
+
+unless the user explicitly approves the new directory.
+
+If verification, testing, or a feature appears to require a new folder:
+
+1. STOP.
+2. Explain why the folder is needed.
+3. Identify whether the functionality can be implemented using the existing architecture.
+4. Propose the exact path.
+5. Wait for explicit approval.
+
+Do not treat "better organization", "clean architecture", "best practice", or "testing" as automatic permission to create a new directory.
+
+Existing architecture takes priority over the agent's preferred project structure.
+
+## NO SILENT ARCHITECTURE EXPANSION
+
+Creating a new file inside an approved directory requires justification.
+
+Creating a NEW DIRECTORY requires explicit user approval.
+
+Never silently expand the repository architecture.
+
 # 11. POLICY ENGINE
 
 The policy engine is deterministic code.
