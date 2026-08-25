@@ -1435,3 +1435,36 @@ RULES:
 - After implementing, report EXACTLY what files you created or modified and what changed in each
 
 If I ask for one feature and you find yourself creating 4+ new files — STOP and ask me if that's really what I want.
+
+## UI ARCHITECTURE LOCK
+
+The UI architecture is intentionally minimal.
+
+Approved component locations:
+
+/components/
+  MetricCards.tsx
+  StoppingRulesPanel.tsx
+  OrderTable.tsx
+  AgentRunner.tsx
+  VoiceCallModal.tsx
+  AuditTimeline.tsx
+  EvaluationTable.tsx
+
+Do NOT create a `/components/ui/` directory.
+
+Do NOT create separate Button, Badge, Card, Spinner, Icon, Status, Modal, Typography, or similar primitive files unless the user explicitly approves the architectural change.
+
+Small UI primitives should remain inside the component that owns their usage until genuine reuse justifies extraction.
+
+Do NOT create a new component file merely because a piece of JSX is visually reusable.
+
+Prefer the smallest maintainable component structure.
+
+If a new component/file appears necessary, stop and explain:
+1. Why it cannot reasonably remain in an existing component.
+2. Where it should live.
+3. What existing components will reuse it.
+4. Why the additional abstraction is justified.
+
+Do not create new UI directories without explicit user approval.

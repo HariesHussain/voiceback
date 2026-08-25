@@ -1,0 +1,67 @@
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #0F0F0F;
+  color: #F3F4F6;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Status Badge Classes */
+.status-badge-pending {
+  background-color: #422006;
+  color: #FACC15;
+  border: 1px solid #854D0E;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', 'JetBrains Mono', monospace;
+  display: inline-block;
+}
+
+.status-badge-processing {
+  background-color: #172554;
+  color: #60A5FA;
+  border: 1px solid #1E40AF;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', 'JetBrains Mono', monospace;
+  display: inline-block;
+}
+
+.status-badge-recovered {
+  background-color: #052E16;
+  color: #4ADE80;
+  border: 1px solid #166534;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', 'JetBrains Mono', monospace;
+  display: inline-block;
+}
+
+.status-badge-failed {
+  background-color: #450A0A;
+  color: #F87171;
+  border: 1px solid #991B1B;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', 'JetBrains Mono', monospace;
+  display: inline-block;
+}
+
+.status-badge-escalated {
+  background-color: #431407;
+  color: #FB923C;
+  border: 1px solid #9A3412;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-family: 'Courier New', 'JetBrains Mono', monospace;
+  display: inline-block;
+}
