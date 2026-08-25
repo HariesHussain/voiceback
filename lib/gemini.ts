@@ -73,7 +73,7 @@ function cleanJsonResponse(text: string): string {
 }
 
 /**
- * Diagnoses a failed order using Gemini 1.5 Flash.
+ * Diagnoses a failed order using Gemini 3.5 Flash-Lite.
  * Never throws an error at runtime; always returns a valid GeminiDiagnosis fallback on failure.
  */
 export async function diagnoseOrder(order: Order): Promise<GeminiDiagnosis> {
@@ -122,7 +122,7 @@ Note for hinglish_script: If strategy is hinglish_voice_simulation, generate 3-4
   try {
     const genAI = new GoogleGenerativeAI(apiKey!);
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3.5-flash-lite',
       generationConfig: {
         responseMimeType: 'application/json',
       },
