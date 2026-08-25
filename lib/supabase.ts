@@ -59,3 +59,25 @@ export async function logAuditEvent(event: Partial<AuditEvent>): Promise<void> {
     console.error('Unhandled exception in logAuditEvent:', err?.message || err);
   }
 }
+
+/**
+ * Fetches recorded audit events for a given orderId in chronological order.
+ */
+export async function getAuditEventsForOrder(orderId: string): Promise<AuditEvent[]> {
+  try {
+    const { data, error } = await supabase
+      .from('audit_events')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('event_time', { ascending: true });
+
+    if (error || !data) {
+      return [];
+    }
+    return data as AuditEvent[];
+  } catch (err) {
+    console.warn(`Failed to fetch audit events for ${orderId}:`, err);
+    return [];
+  }
+}
+
