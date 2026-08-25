@@ -1,6 +1,17 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Order, GeminiDiagnosis, RecoveryStrategy } from '../types';
 
+// Ensure module is never imported or executed in browser environments
+if (typeof window !== 'undefined') {
+  throw new Error('lib/gemini.ts is a server-side module and must never be imported in client-side code.');
+}
+
+// Ensure API key is configured at startup
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  throw new Error('GEMINI_API_KEY is not set in environment variables. Server startup failed.');
+}
+
 const VALID_STRATEGIES: RecoveryStrategy[] = [
   'instant_retry',
   'payment_link_sms',
@@ -11,7 +22,7 @@ const VALID_STRATEGIES: RecoveryStrategy[] = [
 ];
 
 /**
-  Creates a safe fallback GeminiDiagnosis object when API calls, parsing, or timeouts fail.
+ * Creates a safe fallback GeminiDiagnosis object when API calls, parsing, or timeouts fail.
  */
 function createFallbackDiagnosis(
   order: Order,
@@ -46,7 +57,7 @@ function createFallbackDiagnosis(
 }
 
 /**
-  Clean raw text output from Gemini to remove markdown code wrappers if present.
+ * Clean raw text output from Gemini to remove markdown code wrappers if present.
  */
 function cleanJsonResponse(text: string): string {
   let cleaned = text.trim();
@@ -62,20 +73,10 @@ function cleanJsonResponse(text: string): string {
 }
 
 /**
-  Diagnoses a failed order using Gemini 1.5 Flash.
-  Never throws an error; always returns a valid GeminiDiagnosis fallback on failure.
+ * Diagnoses a failed order using Gemini 1.5 Flash.
+ * Never throws an error at runtime; always returns a valid GeminiDiagnosis fallback on failure.
  */
 export async function diagnoseOrder(order: Order): Promise<GeminiDiagnosis> {
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey) {
-    console.error('Gemini API Key missing in environment (GEMINI_API_KEY).');
-    return createFallbackDiagnosis(
-      order,
-      'Gemini API key is missing from server environment.'
-    );
-  }
-
   const systemPrompt = `You are VoiceBack AI, an expert payment recovery agent for Razorpay merchants in India.
 Analyze the following failed order and provide a structured JSON diagnosis and recovery strategy.
 
@@ -119,7 +120,7 @@ Return ONLY valid JSON matching this schema exactly (no markdown formatting, no 
 Note for hinglish_script: If strategy is hinglish_voice_simulation, generate 3-4 natural Hinglish sentences addressing ${order.customer_name}, stating the payment of ₹${order.amount} failed, and that a payment link is being sent. If strategy is NOT hinglish_voice_simulation, return "".`;
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const genAI = new GoogleGenerativeAI(apiKey!);
     const model = genAI.getGenerativeModel({
       model: 'gemini-1.5-flash',
       generationConfig: {
