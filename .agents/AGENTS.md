@@ -1468,3 +1468,13 @@ If a new component/file appears necessary, stop and explain:
 4. Why the additional abstraction is justified.
 
 Do not create new UI directories without explicit user approval.
+
+## DEPENDENCY LOCK
+
+Do not install, remove, or upgrade npm packages unless:
+1. The current repository is inspected first.
+2. The dependency is genuinely required for the requested feature.
+3. Existing dependencies cannot reasonably provide the functionality.
+4. The agent reports the exact dependency change and why it was necessary.
+
+Never install a package merely because it is commonly used or appears in an external guide.
