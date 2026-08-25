@@ -1,5 +1,3 @@
-'use server';
-
 import Razorpay from 'razorpay';
 import { Order } from '../types';
 import { supabase } from './supabase';
