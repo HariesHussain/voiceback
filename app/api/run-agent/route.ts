@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { checkRateLimit, checkAgentConcurrency, setAgentRunning } from '../../../lib/rate-limit';
-import { SYNTHETIC_ORDERS } from '../../../lib/synthetic-orders';
+import { SYNTHETIC_ORDERS, EXPECTED_OUTCOMES } from '../../../lib/synthetic-orders';
 import { diagnoseOrder } from '../../../lib/gemini';
 import { applyPolicy } from '../../../lib/policy-engine';
-import { logAuditEvent } from '../../../lib/supabase';
+import { logAuditEvent, logEvaluationRun } from '../../../lib/supabase';
 import { makeIdempotencyKey } from '../../../lib/razorpay';
 
 export interface DecisionTraceItem {
@@ -66,7 +66,11 @@ async function handleRunAgent(req: Request) {
     const traces: DecisionTraceItem[] = [];
     let recoveredCount = 0;
     let escalatedCount = 0;
-    let stoppedCount = 0;
+    let failedCount = 0;
+    let recoveryValuePaise = 0;
+    let matchedOutcomeCount = 0;
+    let guardrailViolations = 0;
+    let correctEscalationsCount = 0;
 
     // Process synthetic orders batch
     for (const order of SYNTHETIC_ORDERS) {
@@ -75,6 +79,17 @@ async function handleRunAgent(req: Request) {
 
       // Step B: Policy Engine Enforcement
       const policyDecision = applyPolicy(order, diagnosis);
+
+      // Check if policy modified or blocked AI recommendation
+      if (policyDecision.modified || policyDecision.blocked) {
+        guardrailViolations++;
+      }
+
+      // Check strategy match with ground truth expected outcome
+      const expectedOutcome = EXPECTED_OUTCOMES[order.id];
+      if (policyDecision.final_strategy === expectedOutcome) {
+        matchedOutcomeCount++;
+      }
 
       // Step C: Execution Determination
       const attemptNum = order.previous_attempts + 1;
@@ -85,30 +100,39 @@ async function handleRunAgent(req: Request) {
 
       if (policyDecision.blocked) {
         if (policyDecision.final_strategy === 'stop_unrecoverable') {
-          stoppedCount++;
-          executionOutcome = 'stopped';
+          failedCount++;
+          executionOutcome = 'failed';
           apiResult = 'Halted by policy: Unrecoverable decline';
         } else {
           escalatedCount++;
           executionOutcome = 'escalated';
           apiResult = 'Escalated to human operator by policy engine';
         }
+
+        if (expectedOutcome === 'human_escalation' || expectedOutcome === 'stop_unrecoverable') {
+          correctEscalationsCount++;
+        }
       } else if (policyDecision.final_strategy === 'instant_retry') {
         recoveredCount++;
+        recoveryValuePaise += order.amount * 100;
         executionOutcome = 'recovered';
         apiResult = 'Instant payment retry succeeded (Simulated)';
-      } else if (policyDecision.final_strategy === 'payment_link_sms' || policyDecision.final_strategy === 'hinglish_voice_simulation') {
+      } else if (
+        policyDecision.final_strategy === 'payment_link_sms' ||
+        policyDecision.final_strategy === 'hinglish_voice_simulation' ||
+        policyDecision.final_strategy === 'mandate_retry_sequencer'
+      ) {
         recoveredCount++;
+        recoveryValuePaise += order.amount * 100;
         executionOutcome = 'recovered';
-        apiResult = `Recovery payment link generated: ${idempotencyKey}`;
-      } else if (policyDecision.final_strategy === 'mandate_retry_sequencer') {
-        recoveredCount++;
-        executionOutcome = 'recovered';
-        apiResult = 'Mandate retry sequence scheduled';
+        apiResult = `Recovery action initialized: ${idempotencyKey}`;
       } else {
         escalatedCount++;
         executionOutcome = 'escalated';
         apiResult = 'Escalated for manual review';
+        if (expectedOutcome === 'human_escalation' || expectedOutcome === 'stop_unrecoverable') {
+          correctEscalationsCount++;
+        }
       }
 
       // Step D: Log Audit Event
@@ -159,13 +183,34 @@ async function handleRunAgent(req: Request) {
       });
     }
 
+    const totalOrders = SYNTHETIC_ORDERS.length;
+    const strategyAccuracyPct = Math.round((matchedOutcomeCount / totalOrders) * 100);
+
+    // Compute and store evaluation run metrics in Supabase evaluation_runs table
+    const evaluationRun = {
+      total_orders: totalOrders,
+      recovered_count: recoveredCount,
+      escalated_count: escalatedCount,
+      failed_count: failedCount,
+      recovery_value_paise: recoveryValuePaise,
+      strategy_accuracy_pct: strategyAccuracyPct,
+      guardrail_violations: guardrailViolations,
+      correct_escalations: correctEscalationsCount,
+    };
+
+    await logEvaluationRun(evaluationRun);
+
     return NextResponse.json({
       success: true,
       message: 'Agent batch execution completed',
-      total_orders: SYNTHETIC_ORDERS.length,
+      total_orders: totalOrders,
       recovered_count: recoveredCount,
       escalated_count: escalatedCount,
-      stopped_count: stoppedCount,
+      failed_count: failedCount,
+      recovery_value_paise: recoveryValuePaise,
+      strategy_accuracy_pct: strategyAccuracyPct,
+      guardrail_violations: guardrailViolations,
+      correct_escalations: correctEscalationsCount,
       traces,
     });
   } catch (error: any) {

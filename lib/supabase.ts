@@ -81,3 +81,66 @@ export async function getAuditEventsForOrder(orderId: string): Promise<AuditEven
   }
 }
 
+export interface EvaluationRunRecord {
+  id?: string;
+  total_orders: number;
+  recovered_count: number;
+  escalated_count: number;
+  failed_count: number;
+  recovery_value_paise: number;
+  strategy_accuracy_pct: number;
+  guardrail_violations: number;
+  correct_escalations: number;
+  created_at?: string;
+}
+
+/**
+ * Stores an evaluation run result in the Supabase `evaluation_runs` table.
+ * Never throws — logs errors safely to console.error.
+ */
+export async function logEvaluationRun(run: EvaluationRunRecord): Promise<void> {
+  try {
+    const recordToInsert = {
+      total_orders: run.total_orders,
+      recovered_count: run.recovered_count,
+      escalated_count: run.escalated_count,
+      failed_count: run.failed_count,
+      recovery_value_paise: run.recovery_value_paise,
+      strategy_accuracy_pct: run.strategy_accuracy_pct,
+      guardrail_violations: run.guardrail_violations,
+      correct_escalations: run.correct_escalations,
+      created_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('evaluation_runs').insert(recordToInsert);
+    if (error) {
+      console.error('Failed to insert record into evaluation_runs:', error.message);
+    }
+  } catch (err: any) {
+    console.error('Unhandled exception in logEvaluationRun:', err?.message || err);
+  }
+}
+
+/**
+ * Fetches the latest evaluation run from the `evaluation_runs` table.
+ */
+export async function getLatestEvaluationRun(): Promise<EvaluationRunRecord | null> {
+  try {
+    const { data, error } = await supabase
+      .from('evaluation_runs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+    return data as EvaluationRunRecord;
+  } catch (err) {
+    console.warn('Failed to fetch latest evaluation run:', err);
+    return null;
+  }
+}
+
+
